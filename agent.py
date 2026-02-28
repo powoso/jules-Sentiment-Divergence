@@ -123,7 +123,7 @@ def get_market_data(market_id: str) -> dict:
         "trend_magnitude": -0.15 # 15% drop
     }
 
-def analyze_market_opportunity(subreddit: str, market_id: str, risk_limit: float = 500.0):
+def analyze_market_opportunity(subreddit: str, market_id: str, risk_limit: float = 500.0) -> dict:
     """
     Core agent logic:
     1. Scrape comments
@@ -147,6 +147,16 @@ def analyze_market_opportunity(subreddit: str, market_id: str, risk_limit: float
     market_data = get_market_data(market_id)
     print(f"Market Data: 'Yes' Price = ${market_data['yes_price']:.2f}, Trend = {market_data['trend']}")
 
+    # Prepare result dictionary
+    result = {
+        "subreddit": subreddit,
+        "market_id": market_id,
+        "sentiment_score": sentiment_score,
+        "market_data": market_data,
+        "divergence_detected": False,
+        "recommendation": None
+    }
+
     # 4. Check for sentiment divergence
     # If sentiment is overwhelmingly positive ( > 0.8) but the 'Yes' price is falling
     is_positive_sentiment = sentiment_score > 0.8
@@ -156,12 +166,25 @@ def analyze_market_opportunity(subreddit: str, market_id: str, risk_limit: float
         print("\n🚨 FLAG: Sentiment Divergence Detected! 🚨")
         print(f"Reason: High positive sentiment ({sentiment_score:.2f}) diverges from {market_data['trend']} market price.")
 
+        result["divergence_detected"] = True
+
         # 5. Suggest a contrarian hedge position
         # Calculate how many shares we can buy with our risk limit
         yes_price = market_data['yes_price']
         max_shares = int(risk_limit / yes_price)
         potential_payout = max_shares * 1.00 # Assuming payout is $1.00 per share
         profit = potential_payout - risk_limit
+        roi = (profit / (max_shares * yes_price)) * 100
+
+        result["recommendation"] = {
+            "action": "Buy 'Yes' shares (Contrarian Hedge)",
+            "risk_limit": risk_limit,
+            "current_yes_price": yes_price,
+            "suggested_position": max_shares,
+            "total_capital_at_risk": max_shares * yes_price,
+            "potential_profit": profit,
+            "roi": roi
+        }
 
         print("\n--- Strategy Recommendation ---")
         print(f"Action: Buy 'Yes' shares (Contrarian Hedge)")
@@ -169,9 +192,13 @@ def analyze_market_opportunity(subreddit: str, market_id: str, risk_limit: float
         print(f"Current 'Yes' Price: ${yes_price:.2f}")
         print(f"Suggested Position: {max_shares} shares")
         print(f"Total Capital at Risk: ${max_shares * yes_price:.2f}")
-        print(f"Potential Profit: ${profit:.2f} (ROI: {(profit/(max_shares * yes_price))*100:.1f}%)")
+        print(f"Potential Profit: ${profit:.2f} (ROI: {roi:.1f}%)")
     else:
         print("\nNo sentiment divergence detected. Conditions not met for contrarian hedge.")
 
+    return result
+
 if __name__ == "__main__":
-    analyze_market_opportunity("Polymarket", "MKT-123", 500.0)
+    result = analyze_market_opportunity("Polymarket", "MKT-123", 500.0)
+    print("\nReturned Data Structure:")
+    print(result)
